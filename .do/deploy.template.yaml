@@ -1,8 +1,8 @@
 spec:
-  name: sample-dockerfile
-  services:
-  - dockerfile_path: Dockerfile
-    github:
-      branch: main
-      repo: bikram20/appplat-nextapp
-    name: sample-web
+ name: sample-nextjs-dockefile
+ services:
+ - name: simple-web
+   git:
+     branch: main
+     repo_clone_url: https://github.com/bikram20/appplat-nextapp.git
+   dockerfile_path: Dockerfile  
