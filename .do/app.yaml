@@ -1,0 +1,8 @@
+name: sample-dockerfile
+services:
+- dockerfile_path: Dockerfile
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: bikram20/appplat-nextapp
+  name: sample-dockerfile
