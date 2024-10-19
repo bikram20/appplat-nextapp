@@ -1,8 +1,9 @@
-name: sample-dockerfile
+name: sample-app-nextjs
 services:
 - dockerfile_path: Dockerfile
+  instance_count: 2
+  name: sample-dockerfile-nextjs
   github:
     branch: main
     deploy_on_push: true
     repo: bikram20/appplat-nextapp
-  name: sample-dockerfile
