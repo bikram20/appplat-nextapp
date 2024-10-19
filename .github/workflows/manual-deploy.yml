@@ -20,6 +20,10 @@ on:
           - production
           - staging
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   manage-app:
     runs-on: ubuntu-latest
@@ -41,8 +45,11 @@ jobs:
 
           update_do_app_id() {
             local new_id=$1
-            gh variable set DO_APP_ID --body "$new_id"
-            echo "Repository variable DO_APP_ID updated to: $new_id"
+            if gh variable set DO_APP_ID --body "$new_id"; then
+              echo "Repository variable DO_APP_ID updated to: $new_id"
+            else
+              echo "::warning::Failed to update DO_APP_ID repository variable. Please update manually to: $new_id"
+            fi
           }
 
           deploy_app() {
@@ -65,7 +72,6 @@ jobs:
               echo "App deleted successfully"
               echo "DO_APP_ID=" >> $GITHUB_ENV
               update_do_app_id ""
-              echo "DO_APP_ID repository variable cleared"
             else
               echo "No app ID provided. Nothing to delete."
             fi
@@ -110,4 +116,6 @@ jobs:
               ;;
           esac
       - name: Output current DO_APP_ID
-        run: echo "Current DO_APP_ID is ${{ vars.DO_APP_ID }}"
+        run: |
+          echo "Current DO_APP_ID is ${{ env.DO_APP_ID }}"
+          echo "::warning::If the repository variable update failed, please manually set DO_APP_ID to ${{ env.DO_APP_ID }}"
