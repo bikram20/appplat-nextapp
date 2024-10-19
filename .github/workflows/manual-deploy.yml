@@ -24,8 +24,6 @@ jobs:
   manage-app:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
-    env:
-      DO_APP_ID: ${{ vars.DO_APP_ID }}
     steps:
       - uses: actions/checkout@v4
       - name: Install doctl
@@ -33,6 +31,8 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
       - name: Manage DigitalOcean App
+        env:
+          DO_APP_ID: ${{ vars.DO_APP_ID }}
         run: |
           APP_SPEC=".do/app.yaml"
           MAX_RETRIES=30
@@ -43,6 +43,7 @@ jobs:
               echo "Creating new app..."
               NEW_APP_ID=$(doctl apps create --spec $APP_SPEC --format ID --no-header)
               echo "DO_APP_ID=$NEW_APP_ID" >> $GITHUB_ENV
+              DO_APP_ID=$NEW_APP_ID
               echo "New app created with ID: $NEW_APP_ID"
             else
               echo "Updating existing app..."
@@ -56,12 +57,17 @@ jobs:
               doctl apps delete $DO_APP_ID --force
               echo "App deleted successfully"
               echo "DO_APP_ID=" >> $GITHUB_ENV
+              unset DO_APP_ID
             else
               echo "No app ID provided. Nothing to delete."
             fi
           }
 
           fetch_ingress() {
+            if [[ -z "$DO_APP_ID" ]]; then
+              echo "No DO_APP_ID provided. Cannot fetch ingress."
+              exit 1
+            fi
             for ((i=1; i<=MAX_RETRIES; i++)); do
               APP_URL=$(doctl apps get $DO_APP_ID --format DefaultIngress --no-header)
               if [[ -n "$APP_URL" && "$APP_URL" != "null" ]]; then
