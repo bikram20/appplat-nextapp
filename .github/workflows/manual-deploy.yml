@@ -1,5 +1,4 @@
 name: Manage DigitalOcean App
-
 on:
   workflow_dispatch:
     inputs:
@@ -11,25 +10,30 @@ on:
         options:
           - deploy
           - delete
-
-env:
-  DO_APP_ID: ${{ secrets.DO_APP_ID }}
+      environment:
+        description: 'Environment to use'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
 
 jobs:
   manage-app:
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    env:
+      DO_APP_ID: ${{ vars.DO_APP_ID }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-
       - name: Manage DigitalOcean App
         run: |
           APP_SPEC=".do/app.yaml"
-          
           if [[ "${{ github.event.inputs.action }}" == "deploy" ]]; then
             if [[ -z "$DO_APP_ID" ]]; then
               echo "Creating new app..."
@@ -40,10 +44,8 @@ jobs:
               echo "Updating existing app..."
               doctl apps update $DO_APP_ID --spec $APP_SPEC
             fi
-            
             APP_URL=$(doctl apps get $DO_APP_ID --format DefaultIngress --no-header)
             echo "App is live at: $APP_URL"
-          
           elif [[ "${{ github.event.inputs.action }}" == "delete" ]]; then
             if [[ -n "$DO_APP_ID" ]]; then
               echo "Deleting app with ID: $DO_APP_ID"
@@ -53,7 +55,6 @@ jobs:
             else
               echo "No app ID provided. Nothing to delete."
             fi
-          
           else
             echo "Invalid action specified"
             exit 1
