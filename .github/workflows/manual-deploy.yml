@@ -1,26 +1,58 @@
-name: Manual Deploy to DigitalOcean
+name: Manage DigitalOcean App
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Deployment Environment'
+      action:
+        description: 'Action to perform'
         required: true
-        default: 'production'
+        default: 'deploy'
         type: choice
         options:
-        - production
-        - staging
+        - deploy
+        - delete
 
 jobs:
-  deploy-app:
+  manage-app:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy the app
-        uses: digitalocean/app_action/deploy@v2
-        with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-        env:
-          ENVIRONMENT: ${{ github.event.inputs.environment }}
+    - uses: actions/checkout@v4
+    
+    - name: Install doctl
+      uses: digitalocean/action-doctl@v2
+      with:
+        token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+    
+    - name: Manage DigitalOcean App
+      run: |
+        APP_ID="${{ secrets.DO_APP_ID }}"
+        APP_SPEC=".do/app.yaml"
+        
+        if [[ "${{ github.event.inputs.action }}" == "deploy" ]]; then
+          if doctl apps get $APP_ID &>/dev/null; then
+            echo "App exists. Updating..."
+            doctl apps update $APP_ID --spec $APP_SPEC
+          else
+            echo "App does not exist. Creating..."
+            NEW_APP_ID=$(doctl apps create --spec $APP_SPEC --format ID --no-header)
+            echo "New app created with ID: $NEW_APP_ID"
+            echo "DO_APP_ID=$NEW_APP_ID" >> $GITHUB_ENV
+          fi
+          
+          APP_ID="${{ env.DO_APP_ID || secrets.DO_APP_ID }}"
+          APP_URL=$(doctl apps get $APP_ID --format DefaultIngress --no-header)
+          echo "App is live at: $APP_URL"
+        
+        elif [[ "${{ github.event.inputs.action }}" == "delete" ]]; then
+          if doctl apps get $APP_ID &>/dev/null; then
+            echo "Deleting app with ID: $APP_ID"
+            doctl apps delete $APP_ID --force
+            echo "App deleted successfully"
+          else
+            echo "App with ID $APP_ID does not exist. Nothing to delete."
+          fi
+        
+        else
+          echo "Invalid action specified"
+          exit 1
+        fi
