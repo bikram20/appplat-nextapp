@@ -10,6 +10,7 @@ on:
         options:
           - deploy
           - delete
+          - fetch-ingress
       environment:
         description: 'Environment to use'
         required: true
@@ -34,7 +35,10 @@ jobs:
       - name: Manage DigitalOcean App
         run: |
           APP_SPEC=".do/app.yaml"
-          if [[ "${{ github.event.inputs.action }}" == "deploy" ]]; then
+          MAX_RETRIES=30
+          RETRY_INTERVAL=20
+
+          deploy_app() {
             if [[ -z "$DO_APP_ID" ]]; then
               echo "Creating new app..."
               NEW_APP_ID=$(doctl apps create --spec $APP_SPEC --format ID --no-header)
@@ -44,9 +48,9 @@ jobs:
               echo "Updating existing app..."
               doctl apps update $DO_APP_ID --spec $APP_SPEC
             fi
-            APP_URL=$(doctl apps get $DO_APP_ID --format DefaultIngress --no-header)
-            echo "App is live at: $APP_URL"
-          elif [[ "${{ github.event.inputs.action }}" == "delete" ]]; then
+          }
+
+          delete_app() {
             if [[ -n "$DO_APP_ID" ]]; then
               echo "Deleting app with ID: $DO_APP_ID"
               doctl apps delete $DO_APP_ID --force
@@ -55,7 +59,39 @@ jobs:
             else
               echo "No app ID provided. Nothing to delete."
             fi
-          else
-            echo "Invalid action specified"
-            exit 1
-          fi
+          }
+
+          fetch_ingress() {
+            for ((i=1; i<=MAX_RETRIES; i++)); do
+              APP_URL=$(doctl apps get $DO_APP_ID --format DefaultIngress --no-header)
+              if [[ -n "$APP_URL" && "$APP_URL" != "null" ]]; then
+                echo "App is live at: $APP_URL"
+                break
+              else
+                echo "Attempt $i: Ingress not available yet. Retrying in $RETRY_INTERVAL seconds..."
+                sleep $RETRY_INTERVAL
+              fi
+            done
+
+            if [[ -z "$APP_URL" || "$APP_URL" == "null" ]]; then
+              echo "Failed to fetch ingress after $MAX_RETRIES attempts."
+              exit 1
+            fi
+          }
+
+          case "${{ github.event.inputs.action }}" in
+            deploy)
+              deploy_app
+              fetch_ingress
+              ;;
+            delete)
+              delete_app
+              ;;
+            fetch-ingress)
+              fetch_ingress
+              ;;
+            *)
+              echo "Invalid action specified"
+              exit 1
+              ;;
+          esac
