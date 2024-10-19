@@ -33,17 +33,24 @@ jobs:
       - name: Manage DigitalOcean App
         env:
           DO_APP_ID: ${{ vars.DO_APP_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           APP_SPEC=".do/app.yaml"
           MAX_RETRIES=30
           RETRY_INTERVAL=20
+
+          update_do_app_id() {
+            local new_id=$1
+            gh variable set DO_APP_ID --body "$new_id"
+            echo "Repository variable DO_APP_ID updated to: $new_id"
+          }
 
           deploy_app() {
             if [[ -z "$DO_APP_ID" ]]; then
               echo "Creating new app..."
               NEW_APP_ID=$(doctl apps create --spec $APP_SPEC --format ID --no-header)
               echo "DO_APP_ID=$NEW_APP_ID" >> $GITHUB_ENV
-              DO_APP_ID=$NEW_APP_ID
+              update_do_app_id $NEW_APP_ID
               echo "New app created with ID: $NEW_APP_ID"
             else
               echo "Updating existing app..."
@@ -57,7 +64,8 @@ jobs:
               doctl apps delete $DO_APP_ID --force
               echo "App deleted successfully"
               echo "DO_APP_ID=" >> $GITHUB_ENV
-              unset DO_APP_ID
+              update_do_app_id ""
+              echo "DO_APP_ID repository variable cleared"
             else
               echo "No app ID provided. Nothing to delete."
             fi
@@ -65,7 +73,7 @@ jobs:
 
           fetch_ingress() {
             if [[ -z "$DO_APP_ID" ]]; then
-              echo "No DO_APP_ID provided. Cannot fetch ingress."
+              echo "::error::No DO_APP_ID provided. Cannot fetch ingress."
               exit 1
             fi
             for ((i=1; i<=MAX_RETRIES; i++)); do
@@ -80,7 +88,7 @@ jobs:
             done
 
             if [[ -z "$APP_URL" || "$APP_URL" == "null" ]]; then
-              echo "Failed to fetch ingress after $MAX_RETRIES attempts."
+              echo "::error::Failed to fetch ingress after $MAX_RETRIES attempts."
               exit 1
             fi
           }
@@ -97,7 +105,9 @@ jobs:
               fetch_ingress
               ;;
             *)
-              echo "Invalid action specified"
+              echo "::error::Invalid action specified"
               exit 1
               ;;
           esac
+      - name: Output current DO_APP_ID
+        run: echo "Current DO_APP_ID is ${{ vars.DO_APP_ID }}"
