@@ -42,12 +42,13 @@ jobs:
           APP_ID="${{ env.DO_APP_ID || secrets.DO_APP_ID }}"
           APP_URL=$(doctl apps get $APP_ID --format DefaultIngress --no-header)
           echo "App is live at: $APP_URL"
-        
+
         elif [[ "${{ github.event.inputs.action }}" == "delete" ]]; then
           if doctl apps get $APP_ID &>/dev/null; then
             echo "Deleting app with ID: $APP_ID"
             doctl apps delete $APP_ID --force
             echo "App deleted successfully"
+            echo "DO_APP_ID=" >> $GITHUB_ENV  # Remove DO_APP_ID from environment variables
           else
             echo "App with ID $APP_ID does not exist. Nothing to delete."
           fi
