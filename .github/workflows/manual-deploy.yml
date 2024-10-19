@@ -30,34 +30,33 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Get App ID
+        id: get-app-id
+        run: |
+          NAME=$(grep '^name:' .do/app.yaml | awk '{print $2}')
+          ID=$(doctl apps list --format ID,Spec.Name --no-header | grep "$NAME" | awk '{print $1}')
+          echo "DO_APP_ID=$ID" >> $GITHUB_ENV
+          echo "APP_NAME=$NAME" >> $GITHUB_ENV
+
       - name: Manage DigitalOcean App
         env:
-          DO_APP_ID: ${{ vars.DO_APP_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           APP_SPEC=".do/app.yaml"
           MAX_RETRIES=30
           RETRY_INTERVAL=20
 
-          update_do_app_id() {
-            local new_id=$1
-            if gh variable set DO_APP_ID --body "$new_id"; then
-              echo "Repository variable DO_APP_ID updated to: $new_id"
-            else
-              echo "::warning::Failed to update DO_APP_ID repository variable. Please update manually to: $new_id"
-            fi
-          }
-
           deploy_app() {
             if [[ -z "$DO_APP_ID" ]]; then
               echo "Creating new app..."
               NEW_APP_ID=$(doctl apps create --spec $APP_SPEC --format ID --no-header)
               echo "DO_APP_ID=$NEW_APP_ID" >> $GITHUB_ENV
-              update_do_app_id $NEW_APP_ID
               echo "New app created with ID: $NEW_APP_ID"
             else
               echo "Updating existing app..."
@@ -70,16 +69,14 @@ jobs:
               echo "Deleting app with ID: $DO_APP_ID"
               doctl apps delete $DO_APP_ID --force
               echo "App deleted successfully"
-              echo "DO_APP_ID=" >> $GITHUB_ENV
-              update_do_app_id ""
             else
-              echo "No app ID provided. Nothing to delete."
+              echo "No app ID found for $APP_NAME. Nothing to delete."
             fi
           }
 
           fetch_ingress() {
             if [[ -z "$DO_APP_ID" ]]; then
-              echo "::error::No DO_APP_ID provided. Cannot fetch ingress."
+              echo "::error::No DO_APP_ID found for $APP_NAME. Cannot fetch ingress."
               exit 1
             fi
             for ((i=1; i<=MAX_RETRIES; i++)); do
@@ -92,7 +89,6 @@ jobs:
                 sleep $RETRY_INTERVAL
               fi
             done
-
             if [[ -z "$APP_URL" || "$APP_URL" == "null" ]]; then
               echo "::error::Failed to fetch ingress after $MAX_RETRIES attempts."
               exit 1
@@ -115,7 +111,8 @@ jobs:
               exit 1
               ;;
           esac
+
       - name: Output current DO_APP_ID
         run: |
           echo "Current DO_APP_ID is ${{ env.DO_APP_ID }}"
-          echo "::warning::If the repository variable update failed, please manually set DO_APP_ID to ${{ env.DO_APP_ID }}"
+          echo "App name is ${{ env.APP_NAME }}"
