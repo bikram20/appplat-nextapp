@@ -6,8 +6,7 @@ This is a Next.js template which can be deployed to [DigitalOcean](https://www.d
 
 This template can be used to deploy your Next.js application as a Docker container. This can either be to the DigitalOcean App Platform or manually to a [Droplet](https://github.com/leerob/next-self-host).
 
-[![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/bikram20/appplat-nextapp.git)
-
+[![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/bikram20/appplat-nextapp/tree/main)
 
 For more information, see the Next.js [deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying#self-hosting).
 
