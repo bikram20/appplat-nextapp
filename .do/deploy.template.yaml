@@ -2,7 +2,9 @@ spec:
  name: sample-nextjs-dockefile
  services:
  - name: simple-web
+   dockerfile_path: Dockerfile  
+   instance_count: 1
+   instance_size_slug: apps-s-1vcpu-0.5gb
    git:
      branch: main
      repo_clone_url: https://github.com/bikram20/appplat-nextapp.git
-   dockerfile_path: Dockerfile  
